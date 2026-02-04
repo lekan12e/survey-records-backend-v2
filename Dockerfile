@@ -1,16 +1,31 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
-WORKDIR /src
-
-COPY survpai/survpai.csproj survpai/
-RUN dotnet restore "survpai/survpai.csproj"
-
-COPY . .
-RUN dotnet publish "survpai/survpai.csproj" -c Release -o /app/publish /p:UseAppHost=false
-
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS final
+# =========================
+# BUILD STAGE
+# =========================
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /app
-ENV ASPNETCORE_URLS=http://+:8080
-EXPOSE 8080
 
-COPY --from=build /app/publish .
+# Copy project file and restore dependencies
+COPY *.csproj ./
+RUN dotnet restore
+
+# Copy the rest of the source code
+COPY . ./
+
+# Build and publish the app
+RUN dotnet publish -c Release -o /out
+
+# =========================
+# RUNTIME STAGE
+# =========================
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+
+# Copy published output from build stage
+COPY --from=build /out .
+
+# Render listens on port 10000
+EXPOSE 10000
+ENV ASPNETCORE_URLS=http://+:10000
+
+# 🔥 CHANGE ONLY THIS LINE
 ENTRYPOINT ["dotnet", "survpai.dll"]
